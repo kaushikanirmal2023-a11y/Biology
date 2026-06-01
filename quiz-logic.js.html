@@ -1,0 +1,465 @@
+// Quiz Logic JavaScript File - Complete Version with Ordered & Random Modes
+
+let currentSection = null;
+let currentQuestionIndex = 0;
+let currentRound = 1;
+let correctAnswersInRound = 0;
+let allQuestions = [];
+let questionsForRound = [];
+let userAnswers = [];
+let answered = false;
+let isRandomMode = false; // NEW: Track if random or ordered mode
+
+// Question Banks - Organized by Section
+const questionBanks = {
+    1: [], // Molecular & Cell Biology - questions.js (150 questions)
+    2: [], // Cell Cycle & Genetics - quiz2.json (84 questions)
+    3: [], // Comparative Anatomy - quiz3.json (80+ questions)
+    4: []  // Parasitology & Disease - quiz4.json (84+ questions)
+};
+
+// Track loaded status
+let questionsLoaded = false;
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadAllQuestionBanks();
+});
+
+// Load all question banks from their respective files
+async function loadAllQuestionBanks() {
+    try {
+        console.log('Starting to load all question banks...');
+
+        // ===== SECTION 1: Load from questions.js (Molecular & Cell Biology) =====
+        try {
+            const response1 = await fetch('questions.js');
+            if (!response1.ok) throw new Error(`HTTP error! status: ${response1.status}`);
+            
+            const text1 = await response1.text();
+            
+            // Parse questions.js format
+            const match = text1.match(/questionsBank\[1\]\s*=\s*\[([\s\S]*?)\];/);
+            
+            if (match) {
+                const arrayString = '[' + match[1] + ']';
+                const cleanedString = arrayString
+                    .replace(/,\s*o:\s*\[([^\]]*)\[\.\.\.]/g, ', o: ["incomplete"')
+                    .replace(/,\s*q:\s*"([^"]*)\[\.\.\."/g, ', q: "$1"')
+                    .replace(/,\s*a:\s*undefined/g, ', a: 0');
+                
+                questionBanks[1] = JSON.parse(cleanedString);
+                console.log(`✓ Section 1 (Molecular & Cell Biology): ${questionBanks[1].length} questions loaded`);
+            }
+        } catch (err) {
+            console.warn('Could not load questions.js:', err);
+        }
+
+        // ===== SECTION 2: Load from quiz2.json (Cell Cycle & Genetics) =====
+        try {
+            const response2 = await fetch('quiz2.json');
+            if (!response2.ok) throw new Error(`HTTP error! status: ${response2.status}`);
+            
+            const data2 = await response2.json();
+            questionBanks[2] = Array.isArray(data2) ? data2 : [];
+            console.log(`✓ Section 2 (Cell Cycle & Genetics): ${questionBanks[2].length} questions loaded`);
+        } catch (err) {
+            console.error('Error loading quiz2.json:', err);
+            questionBanks[2] = [];
+        }
+
+        // ===== SECTION 3: Load from quiz3.json (Comparative Anatomy) =====
+        try {
+            const response3 = await fetch('quiz3.json');
+            if (!response3.ok) throw new Error(`HTTP error! status: ${response3.status}`);
+            
+            const data3 = await response3.json();
+            questionBanks[3] = Array.isArray(data3) ? data3 : [];
+            console.log(`✓ Section 3 (Comparative Anatomy): ${questionBanks[3].length} questions loaded`);
+        } catch (err) {
+            console.error('Error loading quiz3.json:', err);
+            questionBanks[3] = [];
+        }
+
+        // ===== SECTION 4: Load from quiz4.json (Parasitology & Disease) =====
+        try {
+            const response4 = await fetch('quiz4.json');
+            if (!response4.ok) throw new Error(`HTTP error! status: ${response4.status}`);
+            
+            const data4 = await response4.json();
+            questionBanks[4] = Array.isArray(data4) ? data4 : [];
+            console.log(`✓ Section 4 (Parasitology & Disease): ${questionBanks[4].length} questions loaded`);
+        } catch (err) {
+            console.error('Error loading quiz4.json:', err);
+            questionBanks[4] = [];
+        }
+
+        // Calculate total questions
+        const totalQuestions = Object.values(questionBanks).reduce((sum, section) => sum + section.length, 0);
+        console.log(`\n✅ ALL QUESTIONS LOADED SUCCESSFULLY!`);
+        console.log(`Total Questions: ${totalQuestions}`);
+        console.log(`Section 1: ${questionBanks[1].length} questions`);
+        console.log(`Section 2: ${questionBanks[2].length} questions`);
+        console.log(`Section 3: ${questionBanks[3].length} questions`);
+        console.log(`Section 4: ${questionBanks[4].length} questions\n`);
+
+        questionsLoaded = true;
+
+        if (totalQuestions === 0) {
+            console.warn('⚠️ No questions loaded! Loading sample questions...');
+            loadSampleQuestions();
+        }
+
+    } catch (error) {
+        console.error('Critical error loading question banks:', error);
+        loadSampleQuestions();
+    }
+}
+
+// Load sample questions as fallback
+function loadSampleQuestions() {
+    questionBanks[1] = [
+        {
+            q: "What is the major component of DNA?",
+            o: ["histones", "deoxyribonucleotides", "proteins", "amino acids"],
+            a: 1
+        },
+        {
+            q: "Purine nitrogenous bases are:",
+            o: ["A + T", "C + T", "A + G", "G + T"],
+            a: 2
+        }
+    ];
+
+    questionBanks[2] = [
+        {
+            question: "What are the two major phases of the eukaryotic cell cycle?",
+            options: {"a": "Mitosis and Meiosis", "b": "Interphase and M phase"},
+            correct_answer: "b"
+        }
+    ];
+
+    questionBanks[3] = [
+        {
+            question: "What is the genetic characteristic of a population?",
+            options: {"a": "sex ratio", "b": "gene pool"},
+            correct_answer: "b"
+        }
+    ];
+
+    questionBanks[4] = [
+        {
+            question: "What parasite causes dysentery?",
+            options: {"a": "Entamoeba histolytica", "b": "Balantidium coli"},
+            correct_answer: "a"
+        }
+    ];
+
+    console.log('✓ Sample questions loaded as fallback');
+}
+
+// Start Quiz - NEW: Accept randomMode parameter
+function startQuiz(section, randomMode = false) {
+    currentSection = section;
+    currentQuestionIndex = 0;
+    currentRound = 1;
+    correctAnswersInRound = 0;
+    userAnswers = [];
+    answered = false;
+    isRandomMode = randomMode; // NEW: Store mode preference
+
+    // Get questions from the selected section - DO NOT MIX SECTIONS
+    allQuestions = questionBanks[section] || [];
+
+    if (allQuestions.length === 0) {
+        alert('No questions available for this section. Please refresh the page.');
+        return;
+    }
+
+    console.log(`Starting Quiz - Section ${section} with ${allQuestions.length} available questions (${randomMode ? 'RANDOM' : 'ORDERED'} MODE)`);
+
+    // Select 10 questions - ordered or random
+    selectQuestions(10, randomMode);
+
+    console.log(`Selected 10 questions for Round 1 from Section ${section}`);
+
+    // Update UI
+    document.getElementById('sectionsView').style.display = 'none';
+    document.getElementById('quizView').classList.add('show');
+    document.getElementById('resultsView').classList.remove('show');
+    document.querySelector('.back-button').classList.add('show');
+
+    // Set section title and mode badge
+    const titles = {
+        1: 'Molecular & Cell Biology',
+        2: 'Cell Cycle & Genetics',
+        3: 'Comparative Anatomy',
+        4: 'Parasitology & Disease'
+    };
+    document.getElementById('sectionTitle').textContent = titles[section];
+    document.getElementById('modeBadge').textContent = randomMode ? '🔀 Random Mix' : '📋 Ordered';
+    document.getElementById('totalQuestions').textContent = '10';
+
+    loadQuestion();
+}
+
+// Select questions - ORDERED or RANDOM
+function selectQuestions(count, randomMode) {
+    questionsForRound = [];
+    
+    if (allQuestions.length === 0) {
+        console.error('No questions available in this section');
+        return;
+    }
+
+    if (randomMode) {
+        // RANDOM MODE: Shuffle and select
+        const shuffled = [...allQuestions].sort(() => Math.random() - 0.5);
+        questionsForRound = shuffled.slice(0, Math.min(count, shuffled.length));
+        console.log(`🔀 Random Mode: Selected ${questionsForRound.length} questions (shuffled)`);
+    } else {
+        // ORDERED MODE: Select from beginning in order
+        questionsForRound = allQuestions.slice(0, Math.min(count, allQuestions.length));
+        console.log(`📋 Ordered Mode: Selected ${questionsForRound.length} questions (in sequence)`);
+    }
+}
+
+// Load current question
+function loadQuestion() {
+    if (currentQuestionIndex >= questionsForRound.length) {
+        showResults();
+        return;
+    }
+
+    const question = questionsForRound[currentQuestionIndex];
+    answered = false;
+
+    // Update progress
+    document.getElementById('currentQuestion').textContent = currentQuestionIndex + 1;
+    document.getElementById('qNumber').textContent = currentQuestionIndex + 1;
+    const progressPercent = ((currentQuestionIndex + 1) / questionsForRound.length) * 100;
+    document.getElementById('progressFill').style.width = progressPercent + '%';
+
+    // Load question text
+    let questionText = question.q || question.question || '';
+    
+    if (questionText.includes('[...]')) {
+        questionText = questionText.replace(/\s*\[\.\.\.\]\s*$/g, '');
+    }
+    
+    document.getElementById('questionText').textContent = questionText;
+
+    // Load options
+    const optionsContainer = document.getElementById('optionsContainer');
+    optionsContainer.innerHTML = '';
+
+    let options = question.o || question.options || {};
+    let correctAnswerIndex = question.a || question.correct_answer || 0;
+
+    // Convert letter to index
+    if (typeof correctAnswerIndex === 'string') {
+        correctAnswerIndex = correctAnswerIndex.charCodeAt(0) - 'a'.charCodeAt(0);
+    }
+
+    // Handle option formats
+    if (Array.isArray(options)) {
+        options.forEach((option, index) => {
+            const btn = createOptionButton(option, index, correctAnswerIndex);
+            optionsContainer.appendChild(btn);
+        });
+    } else if (typeof options === 'object' && Object.keys(options).length > 0) {
+        const optionsArray = Object.values(options);
+        optionsArray.forEach((option, index) => {
+            const btn = createOptionButton(option, index, correctAnswerIndex);
+            optionsContainer.appendChild(btn);
+        });
+    }
+
+    // Reset feedback
+    document.getElementById('answerFeedback').classList.remove('show');
+    document.getElementById('nextBtn').disabled = true;
+}
+
+// Create option button
+function createOptionButton(text, index, correctIndex) {
+    const btn = document.createElement('button');
+    btn.className = 'option-btn';
+    btn.textContent = text || 'Option';
+    btn.onclick = () => selectOption(index, correctIndex, btn);
+    btn.dataset.index = index;
+    return btn;
+}
+
+// Select option and show feedback
+function selectOption(selectedIndex, correctIndex, buttonElement) {
+    if (answered) return;
+
+    answered = true;
+    const isCorrect = selectedIndex === correctIndex;
+
+    userAnswers.push({
+        question: questionsForRound[currentQuestionIndex],
+        selected: selectedIndex,
+        correct: correctIndex,
+        isCorrect: isCorrect
+    });
+
+    if (isCorrect) {
+        correctAnswersInRound++;
+    }
+
+    // Disable all options and show correct/incorrect
+    document.querySelectorAll('.option-btn').forEach(btn => {
+        btn.disabled = true;
+        btn.classList.add('disabled');
+
+        if (parseInt(btn.dataset.index) === correctIndex) {
+            btn.classList.add('correct');
+        } else if (parseInt(btn.dataset.index) === selectedIndex && !isCorrect) {
+            btn.classList.add('incorrect');
+        }
+    });
+
+    showFeedback(isCorrect, correctIndex);
+    document.getElementById('nextBtn').disabled = false;
+}
+
+// Show feedback message
+function showFeedback(isCorrect, correctIndex) {
+    const feedback = document.getElementById('answerFeedback');
+    const icon = document.getElementById('feedbackIcon');
+    const text = document.getElementById('feedbackText');
+
+    if (isCorrect) {
+        feedback.classList.remove('incorrect');
+        feedback.classList.add('correct', 'show');
+        icon.textContent = '✓';
+        text.textContent = 'Correct Answer! Well done! 🎯';
+    } else {
+        feedback.classList.remove('correct');
+        feedback.classList.add('incorrect', 'show');
+        icon.textContent = '✗';
+        text.textContent = 'Incorrect! ';
+        
+        const question = questionsForRound[currentQuestionIndex];
+        let options = question.o || question.options || [];
+        
+        if (Array.isArray(options) && options[correctIndex]) {
+            text.textContent += `The correct answer is: "${options[correctIndex]}"`;
+        } else if (typeof options === 'object') {
+            const optionsArray = Object.values(options);
+            if (optionsArray[correctIndex]) {
+                text.textContent += `The correct answer is: "${optionsArray[correctIndex]}"`;
+            }
+        }
+    }
+}
+
+// Next question
+function nextQuestion() {
+    currentQuestionIndex++;
+    loadQuestion();
+}
+
+// Show results
+function showResults() {
+    const percentage = Math.round((correctAnswersInRound / questionsForRound.length) * 100);
+    const passed = correctAnswersInRound >= 5; // Pass with 50% (5/10)
+
+    document.getElementById('quizView').classList.remove('show');
+    document.getElementById('resultsView').classList.add('show');
+
+    document.getElementById('scoreDisplay').textContent = `${correctAnswersInRound}/10`;
+    document.getElementById('correctCount').textContent = correctAnswersInRound;
+    document.getElementById('wrongCount').textContent = questionsForRound.length - correctAnswersInRound;
+    document.getElementById('accuracy').textContent = percentage + '%';
+
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    scoreDisplay.classList.remove('passed', 'failed');
+    scoreDisplay.classList.add(passed ? 'passed' : 'failed');
+
+    const message = document.getElementById('resultMessage');
+    if (passed) {
+        message.textContent = 'Congratulations! You passed Round ' + currentRound + '! 🎉';
+        if (currentRound === 1) {
+            message.textContent += ' Ready for Round 2?';
+        }
+    } else {
+        message.textContent = 'You need to score at least 5/10 to pass. Try again!';
+    }
+
+    const actionButtons = document.getElementById('actionButtons');
+    actionButtons.innerHTML = '';
+
+    if (passed && currentRound === 1) {
+        const btn2 = document.createElement('button');
+        btn2.className = 'btn btn-primary';
+        btn2.textContent = 'Continue to Round 2 ➜';
+        btn2.onclick = startRound2;
+        actionButtons.appendChild(btn2);
+    } else if (passed && currentRound === 2) {
+        const btnCongrats = document.createElement('button');
+        btnCongrats.className = 'btn btn-primary';
+        btnCongrats.textContent = 'All Done! 🏆';
+        btnCongrats.onclick = goBack;
+        actionButtons.appendChild(btnCongrats);
+    }
+
+    const btnRetry = document.createElement('button');
+    btnRetry.className = 'btn btn-secondary';
+    btnRetry.textContent = 'Try Again';
+    btnRetry.onclick = () => startQuiz(currentSection, isRandomMode); // NEW: Pass mode
+    actionButtons.appendChild(btnRetry);
+
+    const btnHome = document.createElement('button');
+    btnHome.className = 'btn btn-secondary';
+    btnHome.textContent = '← Go to Home';
+    btnHome.onclick = goBack;
+    actionButtons.appendChild(btnHome);
+}
+
+// Start Round 2
+function startRound2() {
+    currentRound = 2;
+    correctAnswersInRound = 0;
+    currentQuestionIndex = 0;
+    userAnswers = [];
+    answered = false;
+
+    // NEW: Select with same mode (ordered or random)
+    selectQuestions(10, isRandomMode);
+
+    console.log(`Starting Round 2 - Section ${currentSection} (${isRandomMode ? 'RANDOM' : 'ORDERED'} MODE)`);
+
+    document.getElementById('resultsView').classList.remove('show');
+    document.getElementById('quizView').classList.add('show');
+
+    loadQuestion();
+}
+
+// Go back to home
+function goBack() {
+    document.getElementById('sectionsView').style.display = 'grid';
+    document.getElementById('quizView').classList.remove('show');
+    document.getElementById('resultsView').classList.remove('show');
+    document.querySelector('.back-button').classList.remove('show');
+
+    currentSection = null;
+    currentQuestionIndex = 0;
+    currentRound = 1;
+    correctAnswersInRound = 0;
+    userAnswers = [];
+    answered = false;
+    isRandomMode = false; // NEW: Reset mode
+}
+
+// Keyboard support
+document.addEventListener('keydown', (e) => {
+    if (document.getElementById('quizView').classList.contains('show')) {
+        if (e.key === 'Enter' && !document.getElementById('nextBtn').disabled) {
+            nextQuestion();
+        }
+    }
+});
+
+console.log('🚀 Quiz Logic Loaded Successfully - Ordered & Random Modes Available!');

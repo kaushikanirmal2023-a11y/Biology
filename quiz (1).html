@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bio 1st Year - Advanced Quiz Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #6366f1;
+            --secondary: #8b5cf6;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --dark: #1f2937;
+            --light: #f9fafb;
+            --glass: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.2);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* ===== HEADER ===== */
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            animation: slideDown 0.8s ease-out;
+        }
+
+        .header h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            text-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            background: linear-gradient(135deg, #ffd89b 0%, #19547b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.95;
+            font-weight: 300;
+        }
+
+        /* ===== SECTIONS GRID ===== */
+        .sections-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+            animation: fadeIn 1s ease-out 0.3s both;
+        }
+
+        .section-card {
+            background: var(--glass);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 30px;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .section-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, transparent 100%);
+            transform: rotate(45deg);
+            opacity: 0;
+            transition: all 0.6s ease;
+        }
+
+        .section-card:hover::before {
+            opacity: 1;
+            top: -30%;
+            right: -30%;
+        }
+
+        .section-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .section-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            display: inline-block;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 10px;
+            z-index: 2;
+            position: relative;
+        }
+
+        .section-description {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 0.95rem;
+            margin-bottom: 20px;
+            line-height: 1.6;
+            z-index: 2;
+            position: relative;
+        }
+
+        .section-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            z-index: 2;
+            position: relative;
+        }
+
+        .stat {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px 12px;
+            border-radius: 10px;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .difficulty {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            z-index: 2;
+            position: relative;
+        }
+
+        .difficulty.beginner {
+            background: rgba(16, 185, 129, 0.3);
+            color: #10b981;
+        }
+
+        .difficulty.intermediate {
+            background: rgba(245, 158, 11, 0.3);
+            color: #f59e0b;
+        }
+
+        .difficulty.advanced {
+            background: rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+
+        /* ===== QUIZ CONTAINER ===== */
+        .quiz-container {
+            display: none;
+            background: var(--glass);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 25px;
+            padding: 40px;
+            max-width: 900px;
+            margin: 40px auto;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+            animation: slideUp 0.6s ease-out;
+        }
+
+        .quiz-container.show {
+            display: block;
+        }
+
+        /* ===== PROGRESS BAR ===== */
+        .progress-section {
+            margin-bottom: 30px;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            color: white;
+        }
+
+        .progress-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .question-counter {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            border-radius: 10px;
+            transition: width 0.5s ease;
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.6);
+        }
+
+        /* ===== QUESTION ===== */
+        .question-section {
+            margin-bottom: 30px;
+        }
+
+        .question-number {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .question-text {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: white;
+            line-height: 1.8;
+            margin-bottom: 30px;
+        }
+
+        /* ===== OPTIONS ===== */
+        .options-container {
+            display: grid;
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+
+        .option-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            padding: 18px 20px;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: white;
+            font-size: 1rem;
+            text-align: left;
+            position: relative;
+            overflow: hidden;
+            font-weight: 500;
+        }
+
+        .option-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            transition: left 0.3s ease;
+            z-index: 0;
+        }
+
+        .option-btn:hover:not(.disabled):not(.answered) {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateX(8px);
+        }
+
+        .option-btn.selected {
+            background: rgba(99, 102, 241, 0.4);
+            border-color: var(--primary);
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .option-btn.correct {
+            background: rgba(16, 185, 129, 0.4);
+            border-color: var(--success);
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+        }
+
+        .option-btn.incorrect {
+            background: rgba(239, 68, 68, 0.4);
+            border-color: var(--danger);
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+        }
+
+        .option-btn.disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        /* ===== ANSWER FEEDBACK ===== */
+        .answer-feedback {
+            display: none;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            font-weight: 600;
+            animation: slideInUp 0.4s ease-out;
+        }
+
+        .answer-feedback.show {
+            display: block;
+        }
+
+        .answer-feedback.correct {
+            background: rgba(16, 185, 129, 0.2);
+            border-left: 4px solid var(--success);
+            color: #10b981;
+        }
+
+        .answer-feedback.incorrect {
+            background: rgba(239, 68, 68, 0.2);
+            border-left: 4px solid var(--danger);
+            color: #ef4444;
+        }
+
+        .feedback-icon {
+            display: inline-block;
+            margin-right: 10px;
+            font-size: 1.2rem;
+        }
+
+        /* ===== BUTTONS ===== */
+        .button-container {
+            display: flex;
+            gap: 15px;
+            justify-content: flex-end;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px rgba(99, 102, 241, 0.6);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        /* ===== RESULTS SCREEN ===== */
+        .results-container {
+            display: none;
+            text-align: center;
+            color: white;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        .results-container.show {
+            display: block;
+        }
+
+        .results-header {
+            margin-bottom: 40px;
+        }
+
+        .results-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #ffd89b 0%, #19547b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .score-display {
+            font-size: 4rem;
+            font-weight: 900;
+            margin-bottom: 20px;
+            animation: scaleIn 0.6s ease-out;
+        }
+
+        .score-display.passed {
+            color: var(--success);
+        }
+
+        .score-display.failed {
+            color: var(--danger);
+        }
+
+        .result-message {
+            font-size: 1.3rem;
+            margin-bottom: 30px;
+            opacity: 0.95;
+        }
+
+        .result-details {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .detail-item {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 20px;
+            border-radius: 12px;
+        }
+
+        .detail-label {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .detail-value {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .next-action {
+            margin-top: 30px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* ===== ANIMATIONS ===== */
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.5);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        /* ===== BACK BUTTON ===== */
+        .back-button {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            display: none;
+        }
+
+        .back-button.show {
+            display: block;
+        }
+
+        .back-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateX(-5px);
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .sections-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .quiz-container {
+                padding: 25px;
+            }
+
+            .result-details {
+                grid-template-columns: 1fr;
+            }
+
+            .question-text {
+                font-size: 1.1rem;
+            }
+
+            .option-btn {
+                padding: 14px 16px;
+                font-size: 0.95rem;
+            }
+
+            .score-display {
+                font-size: 3rem;
+            }
+
+            .results-title {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- HEADER -->
+        <div class="header">
+            <h1>🧬 BioExam Pro</h1>
+            <p>Master Biology with Advanced Interactive Quizzes</p>
+        </div>
+
+        <!-- BACK BUTTON -->
+        <button class="back-button" onclick="goBack()">← Back</button>
+
+        <!-- SECTIONS VIEW -->
+        <div id="sectionsView">
+            <div class="sections-grid">
+                <div class="section-card" onclick="startQuiz(1)">
+                    <div class="section-icon">🔬</div>
+                    <div class="section-title">Molecular & Cell Biology</div>
+                    <div class="section-description">DNA, RNA, Proteins, Cell Division, Genetics</div>
+                    <div class="section-stats">
+                        <span class="stat">📊 150 Questions</span>
+                        <span class="stat">⏱️ 75 mins</span>
+                    </div>
+                    <div class="difficulty intermediate">Intermediate Level</div>
+                </div>
+
+                <div class="section-card" onclick="startQuiz(2)">
+                    <div class="section-icon">🧬</div>
+                    <div class="section-title">Cell Cycle & Genetics</div>
+                    <div class="section-description">Mitosis, Meiosis, Inheritance, Mutations</div>
+                    <div class="section-stats">
+                        <span class="stat">📊 84 Questions</span>
+                        <span class="stat">⏱️ 45 mins</span>
+                    </div>
+                    <div class="difficulty advanced">Advanced Level</div>
+                </div>
+
+                <div class="section-card" onclick="startQuiz(3)">
+                    <div class="section-icon">🫀</div>
+                    <div class="section-title">Comparative Anatomy</div>
+                    <div class="section-description">Evolution, Vertebrate Systems, Adaptation</div>
+                    <div class="section-stats">
+                        <span class="stat">📊 80 Questions</span>
+                        <span class="stat">⏱️ 45 mins</span>
+                    </div>
+                    <div class="difficulty intermediate">Intermediate Level</div>
+                </div>
+
+                <div class="section-card" onclick="startQuiz(4)">
+                    <div class="section-icon">🔍</div>
+                    <div class="section-title">Parasitology & Disease</div>
+                    <div class="section-description">Protozoa, Helminths, Clinical Cases</div>
+                    <div class="section-stats">
+                        <span class="stat">📊 84 Questions</span>
+                        <span class="stat">⏱️ 45 mins</span>
+                    </div>
+                    <div class="difficulty advanced">Advanced Level</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- QUIZ VIEW -->
+        <div id="quizView" class="quiz-container">
+            <!-- Progress Section -->
+            <div class="progress-section">
+                <div class="progress-header">
+                    <div class="progress-title" id="sectionTitle">Quiz</div>
+                    <div class="question-counter"><span id="currentQuestion">1</span> / <span id="totalQuestions">10</span></div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Question Section -->
+            <div class="question-section">
+                <div class="question-number">Question <span id="qNumber">1</span></div>
+                <div class="question-text" id="questionText"></div>
+            </div>
+
+            <!-- Answer Feedback -->
+            <div class="answer-feedback" id="answerFeedback">
+                <span class="feedback-icon" id="feedbackIcon"></span>
+                <span id="feedbackText"></span>
+            </div>
+
+            <!-- Options -->
+            <div class="options-container" id="optionsContainer"></div>
+
+            <!-- Buttons -->
+            <div class="button-container">
+                <button class="btn btn-secondary" onclick="goBack()">Exit Quiz</button>
+                <button class="btn btn-primary" id="nextBtn" onclick="nextQuestion()" disabled>Next Question</button>
+            </div>
+        </div>
+
+        <!-- RESULTS VIEW -->
+        <div id="resultsView" class="results-container">
+            <div class="results-header">
+                <div class="results-title">Quiz Completed!</div>
+                <div class="score-display" id="scoreDisplay">0/10</div>
+                <div class="result-message" id="resultMessage"></div>
+            </div>
+
+            <div class="result-details">
+                <div class="detail-item">
+                    <div class="detail-label">Correct Answers</div>
+                    <div class="detail-value" id="correctCount">0</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Wrong Answers</div>
+                    <div class="detail-value" id="wrongCount">0</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Accuracy</div>
+                    <div class="detail-value" id="accuracy">0%</div>
+                </div>
+            </div>
+
+            <div class="next-action">
+                <div class="btn-group" id="actionButtons"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="quiz-logic.js"></script>
+</body>
+</html>

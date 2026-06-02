@@ -1,5 +1,6 @@
 // Quiz Logic JavaScript File - Complete Version with All Sections
 // Total Questions: 654 (Section 1: 150, Section 2: 235, Section 3: 80, Section 4: 189)
+// UPDATED: Question Tracking - No repeats across rounds
 
 let currentSection = null;
 let currentQuestionIndex = 0;
@@ -10,6 +11,7 @@ let questionsForRound = [];
 let userAnswers = [];
 let answered = false;
 let isRandomMode = false;
+let usedQuestionIndices = []; // Track used questions to prevent repeats
 
 // Question Banks - All 4 Sections
 const questionBanks = {
@@ -156,6 +158,7 @@ function startQuiz(section, randomMode = false) {
     userAnswers = [];
     answered = false;
     isRandomMode = randomMode;
+    usedQuestionIndices = []; // Reset used questions for new quiz
 
     // Get questions from the selected section
     allQuestions = questionBanks[section] || [];
@@ -193,7 +196,7 @@ function startQuiz(section, randomMode = false) {
     loadQuestion();
 }
 
-// Select questions - ORDERED or RANDOM
+// Select questions - ORDERED or RANDOM (with no repeats across rounds)
 function selectQuestions(count, randomMode) {
     questionsForRound = [];
     
@@ -203,14 +206,40 @@ function selectQuestions(count, randomMode) {
     }
 
     if (randomMode) {
-        // RANDOM MODE: Shuffle and select
-        const shuffled = [...allQuestions].sort(() => Math.random() - 0.5);
-        questionsForRound = shuffled.slice(0, Math.min(count, shuffled.length));
-        console.log(`🔀 Random Mode: Selected ${questionsForRound.length} questions (shuffled)`);
+        // RANDOM MODE: Select random questions not yet used
+        const availableIndices = [];
+        for (let i = 0; i < allQuestions.length; i++) {
+            if (!usedQuestionIndices.includes(i)) {
+                availableIndices.push(i);
+            }
+        }
+
+        // Shuffle available indices
+        availableIndices.sort(() => Math.random() - 0.5);
+
+        // Select questions
+        const selectedIndices = availableIndices.slice(0, Math.min(count, availableIndices.length));
+        questionsForRound = selectedIndices.map(idx => allQuestions[idx]);
+        usedQuestionIndices.push(...selectedIndices);
+
+        console.log(`🔀 Random Mode: Selected ${questionsForRound.length} questions`);
+        console.log(`   Total used so far: ${usedQuestionIndices.length} / ${allQuestions.length}`);
     } else {
-        // ORDERED MODE: Select from beginning in order
-        questionsForRound = allQuestions.slice(0, Math.min(count, allQuestions.length));
-        console.log(`📋 Ordered Mode: Selected ${questionsForRound.length} questions (in sequence)`);
+        // ORDERED MODE: Select next 10 questions sequentially (never used before)
+        const startIndex = usedQuestionIndices.length;
+        const endIndex = Math.min(startIndex + count, allQuestions.length);
+
+        for (let i = startIndex; i < endIndex; i++) {
+            questionsForRound.push(allQuestions[i]);
+            usedQuestionIndices.push(i);
+        }
+
+        console.log(`📋 Ordered Mode: Selected questions ${startIndex + 1} to ${endIndex}`);
+        console.log(`   Total used so far: ${usedQuestionIndices.length} / ${allQuestions.length}`);
+    }
+
+    if (questionsForRound.length === 0) {
+        console.warn('⚠️ No more questions available in this section!');
     }
 }
 
@@ -351,10 +380,17 @@ function showResults() {
     scoreDisplay.classList.add(passed ? 'passed' : 'failed');
 
     const message = document.getElementById('resultMessage');
+    
+    // Check if more questions are available
+    const hasMoreQuestions = usedQuestionIndices.length < allQuestions.length;
+    
     if (passed) {
-        message.textContent = 'Congratulations! You passed Round ' + currentRound + '! 🎉';
-        if (currentRound === 1) {
-            message.textContent += ' Ready for Round 2?';
+        if (currentRound === 1 && hasMoreQuestions) {
+            message.textContent = `Congratulations! You passed Round ${currentRound}! 🎉 Ready for Round 2? (Questions ${usedQuestionIndices.length + 1}-${Math.min(usedQuestionIndices.length + 10, allQuestions.length)})`;
+        } else if (currentRound > 1 && hasMoreQuestions) {
+            message.textContent = `Congratulations! You passed Round ${currentRound}! 🎉 Ready for Round ${currentRound + 1}? (Questions ${usedQuestionIndices.length + 1}-${Math.min(usedQuestionIndices.length + 10, allQuestions.length)})`;
+        } else {
+            message.textContent = `Congratulations! You've completed all available questions in this section! 🏆`;
         }
     } else {
         message.textContent = 'You need to score at least 5/10 to pass. Try again!';
@@ -363,24 +399,24 @@ function showResults() {
     const actionButtons = document.getElementById('actionButtons');
     actionButtons.innerHTML = '';
 
-    if (passed && currentRound === 1) {
-        const btn2 = document.createElement('button');
-        btn2.className = 'btn btn-primary';
-        btn2.textContent = 'Continue to Round 2 ➜';
-        btn2.onclick = startRound2;
-        actionButtons.appendChild(btn2);
-    } else if (passed && currentRound === 2) {
+    if (passed && hasMoreQuestions) {
+        const btnNext = document.createElement('button');
+        btnNext.className = 'btn btn-primary';
+        btnNext.textContent = `Continue to Round ${currentRound + 1} ➜`;
+        btnNext.onclick = startNextRound;
+        actionButtons.appendChild(btnNext);
+    } else if (passed && !hasMoreQuestions) {
         const btnCongrats = document.createElement('button');
         btnCongrats.className = 'btn btn-primary';
-        btnCongrats.textContent = 'All Done! 🏆';
+        btnCongrats.textContent = 'All Questions Completed! 🏆';
         btnCongrats.onclick = goBack;
         actionButtons.appendChild(btnCongrats);
     }
 
     const btnRetry = document.createElement('button');
     btnRetry.className = 'btn btn-secondary';
-    btnRetry.textContent = 'Try Again';
-    btnRetry.onclick = () => startQuiz(currentSection, isRandomMode);
+    btnRetry.textContent = 'Try This Round Again';
+    btnRetry.onclick = () => retryCurrentRound();
     actionButtons.appendChild(btnRetry);
 
     const btnHome = document.createElement('button');
@@ -390,9 +426,43 @@ function showResults() {
     actionButtons.appendChild(btnHome);
 }
 
-// Start Round 2
-function startRound2() {
-    currentRound = 2;
+// Start next round (with new questions)
+function startNextRound() {
+    currentRound++;
+    correctAnswersInRound = 0;
+    currentQuestionIndex = 0;
+    userAnswers = [];
+    answered = false;
+
+    // Check if more questions are available
+    if (usedQuestionIndices.length >= allQuestions.length) {
+        alert('No more questions available in this section!');
+        goBack();
+        return;
+    }
+
+    selectQuestions(10, isRandomMode);
+
+    if (questionsForRound.length === 0) {
+        alert('No more questions available in this section!');
+        goBack();
+        return;
+    }
+
+    console.log(`\n🎯 Starting Round ${currentRound} - Section ${currentSection}\n`);
+
+    document.getElementById('resultsView').classList.remove('show');
+    document.getElementById('quizView').classList.add('show');
+
+    loadQuestion();
+}
+
+// Retry current round (remove questions from tracking)
+function retryCurrentRound() {
+    // Remove the last 10 questions from used list to allow retry
+    const questionsInCurrentRound = Math.min(10, questionsForRound.length);
+    usedQuestionIndices.splice(-questionsInCurrentRound, questionsInCurrentRound);
+
     correctAnswersInRound = 0;
     currentQuestionIndex = 0;
     userAnswers = [];
@@ -400,7 +470,7 @@ function startRound2() {
 
     selectQuestions(10, isRandomMode);
 
-    console.log(`\n🎯 Starting Round 2 - Section ${currentSection} (${isRandomMode ? '🔀 RANDOM' : '📋 ORDERED'} MODE)\n`);
+    console.log(`♻️ Retrying Round ${currentRound}\n`);
 
     document.getElementById('resultsView').classList.remove('show');
     document.getElementById('quizView').classList.add('show');
@@ -422,6 +492,7 @@ function goBack() {
     userAnswers = [];
     answered = false;
     isRandomMode = false;
+    usedQuestionIndices = [];
 }
 
 // Keyboard support
@@ -433,4 +504,7 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-console.log('✅ Quiz Logic Module Loaded - Ready to load 654 questions from 4 sections!');
+console.log('✅ Quiz Logic Module Loaded - Question Tracking Enabled!');
+console.log('   • No questions will repeat across rounds');
+console.log('   • Questions progress: 1-10, 11-20, 21-30, etc.');
+console.log('   • Works with both ORDERED and RANDOM modes');
